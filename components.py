@@ -12,9 +12,31 @@ class Word:
     def __init__(self, word: str, furigana : str = None, accent : int = None):
         self.word = word
         self.furigana = furigana
+        self.furiganas = self.getFuriganas(furigana)
         self.accent = accent
 
-    def 
+    @staticmethod
+    def getFuriganas(furigana: str = "") -> list[str]:
+        """
+        Get the furiganas from the furigana string.
+
+        * All the given characters should only be furigana.
+        """
+        if furigana == "":
+            return []
+        else:
+            result = []
+            
+            def char_is_small_part(c: str) -> bool:
+                return c == "ゃ" or c == "ゅ" or c == "ょ" or c == "ぁ" or c == "ぃ" or c == "ぅ" or c == "ぇ" or c == "ぉ"
+            
+            for c in furigana:
+                if char_is_small_part(c) and len(result) > 0:
+                    result[-1] += c
+                else:
+                    result.append(c)
+
+            return result
 
     def print(self):
         print("{%s|%s;%d}" % (self.word, self.furigana, self.accent))
