@@ -1,5 +1,5 @@
 #This file holds Sakura, which is the main port to the API
-from sakuraParisAPI.fetch import query
+from .fetch import query
 
 class JpDict:
     def __init__(self, maxEntries = 10, dictionaries = {"広辞苑"}):

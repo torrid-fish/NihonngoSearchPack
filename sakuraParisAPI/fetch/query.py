@@ -1,7 +1,7 @@
 import requests
 import json
 import re
-from sakuraParisAPI.fetch.entryClass import Entry
+from .entryClass import Entry
 import traceback
 
 # returns [List of Entries, pagination token]
