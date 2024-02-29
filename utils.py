@@ -36,6 +36,9 @@ def char_is_small_part(c: str) -> bool:
 def kata_to_hira(s: str) -> str:
     return "".join([chr(ord(c) - 96) if u'\u30A1' <= c <= u'\u30F6' else c for c in s])
 
+def hira_to_kata(s: str) -> str:
+    return "".join([chr(ord(c) + 96) if u'\u3041' <= c <= u'\u3096' else c for c in s])
+
 def get_furiganas(furigana: str = "") -> list[str]:
     """
     Get the furiganas from the furigana string.
@@ -55,10 +58,10 @@ def get_furiganas(furigana: str = "") -> list[str]:
 
         return result
 
-def minimum_edit_distance(s1: str, s2: str) -> int:
+def minimum_edit_distance(s1: list[str], s2: list[str]):
     """
-    Calculate the minimum edit distance between two strings.
-    The only acceptable operation is insertion. (Will insert a full-width space character)
+    Calculate the minimum edit distance between two given list.
+    The only acceptable operation is insertion. (Will insert a None into the list)
     This algorithm is an O(n^2) dynamic programming algorithm.
     """
     m, n = len(s1), len(s2)
@@ -89,45 +92,71 @@ def minimum_edit_distance(s1: str, s2: str) -> int:
 
     # Back Tracking
     # Use space to fill the place of the inserted character
-    newS1, newS2 = "", ""
+    newS1, newS2 = [], []
     i, j = m, n
-    while i > 0 and j > 0:
+    while i > 0 or j > 0:
         if bt[i][j] == 1:
-            newS1 = s1[i - 1] + newS1
-            newS2 = s2[j - 1] + newS2
+            newS1 = [s1[i - 1]] + newS1
+            newS2 = [s2[j - 1]] + newS2
             i -= 1
             j -= 1
         elif bt[i][j] == 2:
-            newS1 = s1[i - 1] + newS1
-            newS2 = "　" + newS2
+            newS1 = [s1[i - 1]] + newS1
+            newS2 = [None] + newS2
             i -= 1
             j -= 1
         elif bt[i][j] == 3:
-            newS1 = s1[i - 1] + newS1
-            newS2 = "　" + newS2
+            newS1 = [s1[i - 1]] + newS1
+            newS2 = [None] + newS2
             i -= 1
         else:
-            newS1 = "　" + newS1
-            newS2 = s2[j - 1] + newS2
+            newS1 = [None] + newS1
+            newS2 = [s2[j - 1]] + newS2
             j -= 1
     
     assert(len(newS1) == len(newS2))
 
     return dp[m][n], newS1, newS2
 
-def genearte_accent_map(furiStr: str, accentStr: str, accentData: list[tuple]) -> list[int]:
+def genearte_accent_map(furiStr: str, accentStr: str, accentData: list[tuple], listOfFuri: list[list]) -> list[int]:
     """
-    Since the content of furi and accent might be different (from different APIs), we will first use minimum edit distance algorithm to align these two strings,
-    then generate the accent map for the chars in s1.
-    """
-    _, alignedFuri, alignedAccent = minimum_edit_distance(furiStr, accentStr)
-    alignedFuri, alignedAccent = get_furiganas(alignedFuri), get_furiganas(alignedAccent) # Merge small symbols
+    Since the content of `furiStr` and `accentStr` might be different, we will first use minimum edit distance algorithm to align them.
+    As long as we align them, we will use the data from `accentData` to transform the accent data from the data type of suzukikun to our definition of accent in Char.
+    Finally, we will return a list of accent with the same length of the length of `listOfFuri`.
 
-    # Fill accent back
+    * The first two parameters are only composed of furigana.
+    """
+    _, alignedFuri, alignedAccent = minimum_edit_distance(get_furiganas(furiStr), get_furiganas(accentStr))
+
     result = []
-    for i in range(len(alignedFuri)):
-        if char_is_hira(alignedFuri[i]):
-            result.append(accentData.pop(0)[1])
-        else:
-            result.append(-1)
+    alignedFuriCnt, accentDataCnt = 0, 0
+    for l in listOfFuri:
+        # Default accent
+        accent = -1
+        for i, c in enumerate(l):
+            # Go to the next accent position
+            while alignedFuri[alignedFuriCnt] == None: alignedFuriCnt += 1
+
+            assert c == alignedFuri[alignedFuriCnt]
+
+            # If the part doesn't have accent mark, we will skip it
+            if alignedAccent[alignedFuriCnt] == None: 
+                alignedFuriCnt += 1 
+                continue
+
+            # Check if the accent
+            if accentData[accentDataCnt][1] == 0:
+                accent = 0
+            elif accentData[accentDataCnt][1] == 1:
+                accent = i + 1
+
+            # Update counter
+            alignedFuriCnt += 1
+            accentDataCnt += 1
+
+        # Update answer
+        result.append(accent)
+
+    assert len(result) == len(listOfFuri)
+
     return result

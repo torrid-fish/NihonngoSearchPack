@@ -22,6 +22,7 @@ To use this css style and syntax, type `{%hackmd @OrangeSagoCream/Accent %}` at 
 from .utils import *
 from .yahooAPI.furigana import getFurigana
 from .suzukiKunAPI.accent import getAccent
+import re
 
 CharType = ["kanji", "hira", "kata", "number", "symbol"]
 
@@ -78,7 +79,7 @@ class Char:
             if addFuri:
                 upperData = "".join(self.furiganas[:threshold]) + "<b>" + "".join(self.furiganas[threshold:]) + "</b>"
             else:
-                upperData = "&nbsp;"*(threshold-1) + "<i>" + "&emsp;" + "</i>"
+                upperData = "<i>" + "&emsp;" + "</i>"
 
         elif addAccent and self.accent > 0 and self.accent <= len(self.furiganas) - 1:
             threshold = self.accent - 1
@@ -86,13 +87,23 @@ class Char:
             if addFuri:
                 upperData = "".join(self.furiganas[:threshold]) + "<b>*" + self.furiganas[threshold] + "*</b>" + "".join(self.furiganas[threshold+1:])
             else:
-                upperData = "&nbsp;"*(threshold-1) + "<i>*" + "&emsp;" + "*</i>" + "&nbsp;"*(len(self.furiganas)-threshold-1)
+                upperData = "<i>*" + "&emsp;" + "*</i>"
         elif addFuri:
             upperData = self.furigana
         else: 
             upperData = ""
 
-        if upperData:
+        # Special case for accent on hira or kata
+        if not addFuri and addAccent and self.accent > 0 and self.accent < len(self.furiganas):
+            if self.type == "hira":
+                headWord, tailWord = ''.join(self.furiganas[:self.accent]), ''.join(self.furiganas[self.accent:])
+            elif self.type == "kata":
+                headWord, tailWord = hira_to_kata(''.join(self.furiganas[:self.accent])), hira_to_kata(''.join(self.furiganas[self.accent:]))
+            else:
+                headWord, tailWord = self.word, ""
+            # Return the seperated parts
+            return "{%s|%s}%s" % (headWord, upperData, tailWord)
+        elif upperData:
             return "{%s|%s}" % (self.word, upperData)
         else:
             return self.word
@@ -104,7 +115,7 @@ class Sentence:
     def __init__(self, sentence: list[Char]):
         self.sentence = sentence
 
-    def __init__(self, sentence: str):
+    def __init__(self, sentence: str, accent: bool = True):
         self.sentence = []
 
         # Previous length of sentence
@@ -112,30 +123,43 @@ class Sentence:
         # The input might be too long, we use "\n" to seperate the sentence
         for s in sentence.split("\n"):
 
+            # Use regex to choose predefined furiganas with syntax {a|b}, extract a and b
+            predefined = re.findall(r'{([^|]+)\|([^}]+)}', s)
+            s = re.sub(r'{([^|]+)\|([^}]+)}', r'※\1', s)
+
             # Get the furigana
             furigana = getFurigana(s)
-            for t in furigana: self.sentence.append(Char(t[0], t[1]))
+            cnt, replace = 0, False
+            for t in furigana: 
+                if t[0] == "※":
+                    replace = True
+                elif replace:
+                    self.sentence.append(Char(predefined[cnt][0], predefined[cnt][1]))
+                    replace = False
+                    cnt += 1
+                else:
+                    self.sentence.append(Char(t[0], t[1]))
+                    
             yahooGeneratedFuri = self.getFurigana(threshold)
 
-            # Get the accent
-            temp = getAccent(s)
-            accentData = []
-            suzukiGeneratedFuri = ""
-            for c, _ in temp:
-                if char_is_hira(c):
-                    accentData.append((c, _))
-                    suzukiGeneratedFuri += c
+            # Add accent from suzukikun
+            if accent:
+                # Get the accent
+                temp = getAccent(s)
+                accentData = []
+                suzukiGeneratedFuri = ""
+                for c, _ in temp:
+                    if char_is_hira(c):
+                        accentData.append((c, _))
+                        suzukiGeneratedFuri += c
 
-            # Generate accent map
-            listOfFuri = list(map(lambda c: c.getFuriganas(), self.sentence[threshold:]))
-            accentMap = genearte_accent_map(yahooGeneratedFuri, suzukiGeneratedFuri, accentData, listOfFuri)
+                # Generate accent map
+                listOfFuri = list(map(lambda c: c.furiganas, self.sentence[threshold:]))
+                accentMap = genearte_accent_map(yahooGeneratedFuri, suzukiGeneratedFuri, accentData, listOfFuri)
 
-            # Fill accent
-            for i in range(threshold, len(self.sentence)):
-                _furigana =  self.sentence[i].furiganas
-                for j in range(len(_furigana)):
-                    self.sentence[i].accent = accentMap.pop(0)
-
+                # Fill accent
+                for i in range(threshold, len(self.sentence)):
+                    self.sentence[i].accent = accentMap[i-threshold]
 
             # Fill the "\n" back
             self.sentence.append(Char("\n"))
@@ -158,15 +182,6 @@ class Sentence:
         result = ""
         for word in self.sentence[begin:end]:
             result += word.furigana
-        return result
-    
-    def getFurigana(self, begin: int = 0, end: int = -1) -> list[list]:
-        """
-        Get the furigana.
-        """
-        result = []
-        for word in self.sentence[begin:end]:
-            result.append(word.furiganas)
         return result
 
     def getSentence(self, begin: int = 0, end: int = -1) -> list[Char]:
