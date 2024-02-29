@@ -1,11 +1,15 @@
 import json
 from urllib import request
-from SearchPack.yahooAPI.key import APPID
+from .key import APPID
 
 # The translation from kanji to furigana with yahoo api
 URL = "https://jlp.yahooapis.jp/FuriganaService/V2/furigana"
 
-def askFurigana(query):
+def askFurigana(query: str):
+    """
+    Use the given query string to generate furigana.
+    """
+    
     headers = {
         "Content-Type": "application/json",
         "User-Agent": "Yahoo AppID: {}".format(APPID),
