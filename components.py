@@ -22,7 +22,6 @@ To use this css style and syntax, type `{%hackmd @OrangeSagoCream/Accent %}` at 
 from .utils import *
 from .yahooAPI.furigana import getFurigana
 from .suzukiKunAPI.accent import getAccent
-import re
 
 CharType = ["kanji", "hira", "kata", "number", "symbol"]
 
@@ -123,9 +122,7 @@ class Sentence:
         # The input might be too long, we use "\n" to seperate the sentence
         for s in sentence.split("\n"):
 
-            # Use regex to choose predefined furiganas with syntax {a|b}, extract a and b
-            predefined = re.findall(r'{([^|]+)\|([^}]+)}', s)
-            s = re.sub(r'{([^|]+)\|([^}]+)}', r'※\1', s)
+            s, adjusted = post_adjustment(s)
 
             # Get the furigana
             furigana = getFurigana(s)
@@ -134,7 +131,7 @@ class Sentence:
                 if t[0] == "※":
                     replace = True
                 elif replace:
-                    self.sentence.append(Char(predefined[cnt][0], predefined[cnt][1]))
+                    self.sentence.append(Char(adjusted[cnt][0], adjusted[cnt][1], adjusted[cnt][2]))
                     replace = False
                     cnt += 1
                 else:
@@ -157,9 +154,10 @@ class Sentence:
                 listOfFuri = list(map(lambda c: c.furiganas, self.sentence[threshold:]))
                 accentMap = genearte_accent_map(yahooGeneratedFuri, suzukiGeneratedFuri, accentData, listOfFuri)
 
-                # Fill accent
+                # Fill accent if the orignal accent is -1 (default)
                 for i in range(threshold, len(self.sentence)):
-                    self.sentence[i].accent = accentMap[i-threshold]
+                    if self.sentence[i].accent == -1:
+                        self.sentence[i].accent = accentMap[i-threshold]
 
             # Fill the "\n" back
             self.sentence.append(Char("\n"))

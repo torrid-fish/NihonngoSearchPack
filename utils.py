@@ -1,3 +1,5 @@
+import re
+
 def char_is_kanji(c) -> bool:
     return u'\u4E00' <= c <= u'\u9FFF'
 
@@ -160,3 +162,35 @@ def genearte_accent_map(furiStr: str, accentStr: str, accentData: list[tuple], l
     assert len(result) == len(listOfFuri)
 
     return result
+
+
+def post_adjustment(s: str):
+    """
+    Adjust the input before send into yahoo API and suzukiAPI.
+    The extraction of predefined furiganas and accents will be done here.
+    TODO: Some other adjustments that might enhence the accuracy of the result.
+
+    * All adjustments will be listed in order and have a ※ sign in front of it.
+    """
+    adjustment = []
+    # Use regex to choose predefined furiganas with syntax {a|b}, extract a and b here
+    temp = re.findall(r'{([^|]+)\|([^}]+)}', s)
+    s = re.sub(r'{([^|]+)\|([^}]+)}', r'※\1', s)
+    for t in temp:
+        accent = -1
+        # The expression of accent is defined by =a= (go down) or -a- (flat), extract a here
+        temp1, temp2 = re.findall(r'=([^=]+)=', t[1]), re.findall(r'-([^-]+)-', t[1])
+        # Extract accent mark in t[1] (= or -)
+        furigana = re.sub(r'=([^=]+)=', r'\1', t[1])
+        furigana = re.sub(r'-([^-]+)-', r'\1', furigana)
+        for _t in temp1:
+            pos = furigana.rfind(_t) 
+            accent = furigana.rfind(_t) + len(_t) if pos != -1 else -1
+        for _t in temp2:
+            if furigana.rfind(_t) + len(_t) -1  == len(furigana) - 1:
+                accent = 0
+        adjustment.append([t[0], furigana, accent])
+
+    # Use regex to choose accent
+    print(s, adjustment)
+    return s, adjustment
